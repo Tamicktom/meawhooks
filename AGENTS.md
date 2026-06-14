@@ -112,6 +112,8 @@ Patterns already used in this codebase — follow them when adding code:
 
 ## Environment variables
 
+Each app has a committed `.env.example`; copy to `.env` locally (gitignored). Bun loads `.env` via `--env-file=.env` in dev/listen scripts.
+
 See [README.md](README.md) for the full table. Key vars:
 
 - `PORT` — API server port (default `3000`)

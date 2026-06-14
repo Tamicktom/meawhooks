@@ -12,7 +12,11 @@ Monorepo with Bun, Turborepo, ElysiaJS (API), and Ink (CLI).
 
 ```bash
 bun install
+cp apps/api/.env.example apps/api/.env
+cp apps/cli/.env.example apps/cli/.env
 ```
+
+Copy the example env files and adjust values as needed. If `.env` is missing, apps fall back to the defaults in the table below.
 
 ## Development
 
