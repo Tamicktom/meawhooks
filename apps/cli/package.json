@@ -1,0 +1,22 @@
+{
+  "name": "@meawhooks/cli",
+  "version": "0.0.0",
+  "private": true,
+  "bin": {
+    "meawhooks": "./src/index.tsx"
+  },
+  "scripts": {
+    "dev": "bun run src/index.tsx hello-world",
+    "hello-world": "bun run src/index.tsx hello-world",
+    "build": "bun build src/index.tsx --outdir dist --target bun --external react-devtools-core",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "ink": "^7.0.6",
+    "react": "^19.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.0",
+    "typescript": "^5.8.3"
+  }
+}

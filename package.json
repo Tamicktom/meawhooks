@@ -1,0 +1,19 @@
+{
+  "name": "meawhooks",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "hello": "bun run --filter @meawhooks/cli hello-world"
+  },
+  "devDependencies": {
+    "bun-types": "^1.3.14",
+    "turbo": "^2.5.4",
+    "typescript": "^5.8.3"
+  },
+  "packageManager": "bun@1.3.14"
+}
