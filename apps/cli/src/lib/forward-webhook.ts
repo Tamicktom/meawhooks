@@ -11,9 +11,10 @@ export type ForwardWebhookResult = {
 
 function buildTargetUrl(targetBaseUrl: string, event: WebhookEvent): string {
   const base = new URL(targetBaseUrl);
-  const suffixPath = event.path.replace(/^\//, "");
-  const combinedPath = [base.pathname.replace(/\/$/, ""), suffixPath].filter(Boolean).join("/");
-  base.pathname = `/${combinedPath}`;
+  const basePath = base.pathname.replace(/^\/+|\/+$/g, "");
+  const suffixPath = event.path.replace(/^\/+/, "");
+  const combinedPath = [basePath, suffixPath].filter(Boolean).join("/");
+  base.pathname = combinedPath ? `/${combinedPath}` : "/";
   base.search = event.query.startsWith("?") ? event.query.slice(1) : event.query;
   return base.toString();
 }

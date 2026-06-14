@@ -9,7 +9,8 @@
     "dev": "bun run src/index.tsx listen --tunnel test http://localhost:9999/hook",
     "listen": "bun run src/index.tsx listen",
     "build": "bun build src/index.tsx --outdir dist --target bun --external react-devtools-core",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "test": "bun test --isolate src/lib && bun test src/commands/listen.test.tsx"
   },
   "dependencies": {
     "ink": "^7.0.6",
@@ -17,6 +18,7 @@
   },
   "devDependencies": {
     "@types/react": "^19.2.0",
+    "ink-testing-library": "^4.0.0",
     "typescript": "^5.8.3"
   }
 }

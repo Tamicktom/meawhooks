@@ -31,6 +31,16 @@ function clearRegistrationTimeout(ws: object) {
   }
 
   clearTimeout(pending.timeout);
+}
+
+function removePendingRegistration(ws: object) {
+  const pending = pendingRegistrations.get(ws);
+
+  if (!pending) {
+    return;
+  }
+
+  clearTimeout(pending.timeout);
   pendingRegistrations.delete(ws);
 }
 
@@ -89,6 +99,7 @@ export function createTunnelWebSocket(publicUrl: string) {
         if (pending && !pending.registered) {
           sendMessage(ws, { type: "error", message: "Registration timeout" });
           ws.close();
+          removePendingRegistration(ws);
         }
       }, REGISTER_TIMEOUT_MS);
 
@@ -123,8 +134,17 @@ export function createTunnelWebSocket(publicUrl: string) {
       const result = registerTunnel(message.tunnel, ws.raw);
 
       if (!result.ok) {
-        sendMessage(ws, { type: "error", message: "Tunnel slug already in use" });
-        ws.close();
+        sendMessage(ws, {
+          type: "error",
+          message: result.reason === "already_registered"
+            ? "Already registered"
+            : "Tunnel slug already in use",
+        });
+
+        if (result.reason === "taken") {
+          ws.close();
+        }
+
         return;
       }
 
@@ -143,7 +163,7 @@ export function createTunnelWebSocket(publicUrl: string) {
     },
 
     close(ws) {
-      clearRegistrationTimeout(ws);
+      removePendingRegistration(ws);
       unregisterSocket(ws.raw);
     },
   });

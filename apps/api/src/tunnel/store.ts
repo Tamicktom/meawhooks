@@ -12,8 +12,13 @@ export function getTunnelSocket(tunnel: string): TunnelSocket | undefined {
 export function registerTunnel(
   tunnel: string,
   socket: TunnelSocket,
-): { ok: true } | { ok: false; reason: "taken" } {
+): { ok: true } | { ok: false; reason: "taken" | "already_registered" } {
   const existing = tunnels.get(tunnel);
+  const existingTunnelForSocket = socketTunnels.get(socket);
+
+  if (existingTunnelForSocket && existingTunnelForSocket !== tunnel) {
+    return { ok: false, reason: "already_registered" };
+  }
 
   if (existing && existing !== socket) {
     return { ok: false, reason: "taken" };
@@ -39,4 +44,10 @@ export function unregisterSocket(socket: TunnelSocket): void {
   }
 
   socketTunnels.delete(socket);
+}
+
+/** @internal — test cleanup only */
+export function resetStore(): void {
+  tunnels.clear();
+  socketTunnels.clear();
 }
