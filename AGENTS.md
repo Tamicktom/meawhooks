@@ -27,9 +27,10 @@ Current request flow:
 
 ```mermaid
 flowchart LR
-  User --> CLI
-  CLI -->|"GET /hello-world"| API
-  API --> CLI
+  Sender -->|"ANY /hook/:tunnel"| API
+  CLI -->|"WS /ws register"| API
+  API -->|"webhook event"| CLI
+  CLI -->|"fetch forward"| Local
 ```
 
 ## Apps
@@ -37,18 +38,22 @@ flowchart LR
 ### API — `apps/api`
 
 - **Entry**: [apps/api/src/index.ts](apps/api/src/index.ts)
+- **Modules**: [apps/api/src/tunnel/](apps/api/src/tunnel/) — WebSocket registration, webhook ingress, in-memory store
 - **Routes**:
   - `GET /health` → `{ "status": "ok" }`
-  - `GET /hello-world` → `{ "message": "Hello, World!" }`
+  - `WS /ws` → tunnel registration via WebSocket
+  - `ALL /hook/:tunnel` and `ALL /hook/:tunnel/*` → accept webhooks, forward to CLI, respond `202`
 - **Port**: `PORT` env var (default `3000`)
+- **Public URL**: `PUBLIC_URL` env var (default `http://localhost:3000`)
 - **Stack**: Bun, TypeScript, ElysiaJS
 
 ### CLI — `apps/cli`
 
 - **Entry**: [apps/cli/src/index.tsx](apps/cli/src/index.tsx)
 - **Binary**: `meawhooks`
-- **Commands**: one command today — `hello-world`
+- **Commands**: `listen`
 - **Command modules**: [apps/cli/src/commands/](apps/cli/src/commands/)
+- **Helpers**: [apps/cli/src/lib/](apps/cli/src/lib/) — WebSocket types, webhook forwarding
 - **API base URL**: `API_URL` env var (default `http://localhost:3000`)
 - **Stack**: Bun, TypeScript, Ink 7, React 19
 
@@ -58,7 +63,7 @@ flowchart LR
 |---------|---------|
 | `bun install` | Install all workspace dependencies |
 | `bun dev` | Start the API in watch mode via Turbo |
-| `bun hello` | Run the CLI `hello-world` command against a running API |
+| `bun listen` | Run the CLI `listen` command with example args |
 | `bun run build` | Build all apps via Turbo |
 | `bun run lint` | Typecheck all apps (`tsc --noEmit`) |
 
@@ -68,7 +73,7 @@ Filter a specific workspace when needed:
 
 ```bash
 bun run --filter @meawhooks/api dev
-bun run --filter @meawhooks/cli hello-world
+bun run --filter @meawhooks/cli listen -- --tunnel my-app http://localhost:8080/webhooks
 ```
 
 ## Turborepo tasks
@@ -85,7 +90,7 @@ Patterns already used in this codebase — follow them when adding code:
 
 - **Imports**: organize with section comments (`//* Libraries imports`, `//* Components imports`, etc.)
 - **TypeScript**: `strict: true`, configs extend [tsconfig.base.json](tsconfig.base.json), Bun types via `bun-types`
-- **React (CLI)**: functional components; do not destructure props (e.g. `HelloWorldCommand(props)`)
+- **React (CLI)**: functional components; do not destructure props (e.g. `ListenCommand(props)`)
 - **Language**: code, comments, and identifiers in English
 - **Scope**: keep changes minimal; no shared `packages/` until there is real reuse between api and cli
 
@@ -93,7 +98,7 @@ Patterns already used in this codebase — follow them when adding code:
 
 | Feature type | Location |
 |--------------|----------|
-| New API route | `apps/api/src/index.ts`, or new modules under `apps/api/src/` as it grows |
+| New API route | [apps/api/src/index.ts](apps/api/src/index.ts), or new modules under `apps/api/src/` |
 | New CLI command | new file in `apps/cli/src/commands/` + register it in `apps/cli/src/index.tsx` |
 | Shared types/utils | not set up yet — create `packages/` only when api and cli truly share code |
 
@@ -101,12 +106,14 @@ Patterns already used in this codebase — follow them when adding code:
 
 - Ink 7 requires React >= 19.2; CLI build uses `--external react-devtools-core`
 - CLI bin points to TSX source (`./src/index.tsx`) — Bun runs it natively
-- No automated tests yet — manual validation via curl and `bun hello`
+- No automated tests yet — manual validation via curl and `meawhooks listen`
 - No ESLint/Prettier — lint is `tsc --noEmit` only
+- Webhook proxy is fire-and-forget: API returns `202` without waiting for local server response
 
 ## Environment variables
 
 See [README.md](README.md) for the full table. Key vars:
 
 - `PORT` — API server port (default `3000`)
+- `PUBLIC_URL` — public webhook base URL (default `http://localhost:3000`)
 - `API_URL` — CLI base URL for API requests (default `http://localhost:3000`)

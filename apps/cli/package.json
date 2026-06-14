@@ -6,8 +6,8 @@
     "meawhooks": "./src/index.tsx"
   },
   "scripts": {
-    "dev": "bun run src/index.tsx hello-world",
-    "hello-world": "bun run src/index.tsx hello-world",
+    "dev": "bun run src/index.tsx listen --tunnel test http://localhost:9999/hook",
+    "listen": "bun run src/index.tsx listen",
     "build": "bun build src/index.tsx --outdir dist --target bun --external react-devtools-core",
     "lint": "tsc --noEmit"
   },
