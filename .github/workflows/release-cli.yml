@@ -35,7 +35,10 @@ jobs:
 
       - run: bun run test
 
-      - run: bun run --filter @meawhooks/cli build:binary
+      - name: Build production binary
+        env:
+          API_URL: https://meawhooks.api.hammertail.app
+        run: bun run --filter @meawhooks/cli build:binary -- --env=inline
 
       - name: Verify binary
         run: |
