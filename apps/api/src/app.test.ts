@@ -40,6 +40,26 @@ describe("createApp", () => {
     expect(await response.json()).toEqual({ status: "ok" });
   });
 
+  test("exposes OpenAPI JSON spec", async () => {
+    const app = createTestApp();
+    const response = await app.handle(new Request("http://localhost/openapi/json"));
+
+    expect(response.status).toBe(200);
+
+    const spec = await response.json();
+    expect(spec.openapi).toMatch(/^3\./);
+    expect(spec.paths).toHaveProperty("/health");
+    expect(spec.paths).toHaveProperty("/hook/{tunnel}");
+  });
+
+  test("exposes OpenAPI Scalar UI", async () => {
+    const app = createTestApp();
+    const response = await app.handle(new Request("http://localhost/openapi"));
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain("text/html");
+  });
+
   test("forwards webhooks end-to-end through WebSocket registration", async () => {
     crypto.randomUUID = mock(() => "e2e-event") as typeof crypto.randomUUID;
 

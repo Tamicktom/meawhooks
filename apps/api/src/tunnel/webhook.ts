@@ -102,8 +102,24 @@ async function handleWebhook(request: Request, params: WebhookParams) {
   });
 }
 
+const WEBHOOK_DETAIL = {
+  tags: ["Webhooks"],
+  description:
+    "Accepts any HTTP method. Returns 202 when an active tunnel listener is registered, 503 otherwise. Forwards the request to the CLI over WebSocket (fire-and-forget).",
+};
+
 export function createWebhookRoutes() {
   return new Elysia({ name: "tunnel-webhook" })
-    .all("/hook/:tunnel", ({ request, params }) => handleWebhook(request, params))
-    .all("/hook/:tunnel/*", ({ request, params }) => handleWebhook(request, params));
+    .all("/hook/:tunnel", ({ request, params }) => handleWebhook(request, params), {
+      detail: {
+        ...WEBHOOK_DETAIL,
+        summary: "Accept webhook for tunnel",
+      },
+    })
+    .all("/hook/:tunnel/*", ({ request, params }) => handleWebhook(request, params), {
+      detail: {
+        ...WEBHOOK_DETAIL,
+        summary: "Accept webhook with path suffix",
+      },
+    });
 }
