@@ -194,6 +194,45 @@ describe("createTunnelWebSocket", () => {
     }
   });
 
+  test("does not close with registration timeout after successful registration", async () => {
+    const originalSetTimeout = globalThis.setTimeout;
+    const timeoutCallbacks: Array<() => void> = [];
+
+    globalThis.setTimeout = ((callback: () => void, delay?: number) => {
+      if (delay === REGISTER_TIMEOUT_MS) {
+        timeoutCallbacks.push(callback);
+        return 1 as unknown as ReturnType<typeof setTimeout>;
+      }
+
+      return originalSetTimeout(callback, delay);
+    }) as typeof setTimeout;
+
+    try {
+      const socket = await openWebSocket();
+      socket.send(JSON.stringify({ type: "register", tunnel: "my-app" }));
+
+      const message = await readNextMessage(socket);
+
+      expect(message).toEqual({
+        type: "registered",
+        tunnel: "my-app",
+        webhookUrl: "http://localhost:3000/hook/my-app",
+      });
+
+      if (timeoutCallbacks.length === 0) {
+        throw new Error("Registration timeout was not scheduled");
+      }
+
+      timeoutCallbacks[0]!();
+
+      expect(socket.readyState).toBe(WebSocket.OPEN);
+
+      socket.close();
+    } finally {
+      globalThis.setTimeout = originalSetTimeout;
+    }
+  });
+
   test("unregisters tunnel when the socket closes", async () => {
     const socket = await openWebSocket();
     socket.send(JSON.stringify({ type: "register", tunnel: "my-app" }));

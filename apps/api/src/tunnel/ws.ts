@@ -17,14 +17,18 @@ type PendingRegistration = {
   registered: boolean;
 };
 
-const pendingRegistrations = new WeakMap<object, PendingRegistration>();
+type RegistrationSocket = {
+  send: (data: string | ArrayBuffer | Uint8Array) => void;
+};
+
+const pendingRegistrations = new WeakMap<RegistrationSocket, PendingRegistration>();
 
 function sendMessage(ws: { send: (data: string) => void }, message: RegisteredMessage | ErrorMessage) {
   ws.send(JSON.stringify(message));
 }
 
-function clearRegistrationTimeout(ws: object) {
-  const pending = pendingRegistrations.get(ws);
+function clearRegistrationTimeout(socket: RegistrationSocket) {
+  const pending = pendingRegistrations.get(socket);
 
   if (!pending) {
     return;
@@ -33,15 +37,15 @@ function clearRegistrationTimeout(ws: object) {
   clearTimeout(pending.timeout);
 }
 
-function removePendingRegistration(ws: object) {
-  const pending = pendingRegistrations.get(ws);
+function removePendingRegistration(socket: RegistrationSocket) {
+  const pending = pendingRegistrations.get(socket);
 
   if (!pending) {
     return;
   }
 
   clearTimeout(pending.timeout);
-  pendingRegistrations.delete(ws);
+  pendingRegistrations.delete(socket);
 }
 
 function parseMessage(rawMessage: unknown): ClientMessage | null {
@@ -93,17 +97,19 @@ function parseMessage(rawMessage: unknown): ClientMessage | null {
 export function createTunnelWebSocket(publicUrl: string) {
   return new Elysia({ name: "tunnel-ws" }).ws("/ws", {
     open(ws) {
+      const socket = ws.raw;
+
       const timeout = setTimeout(() => {
-        const pending = pendingRegistrations.get(ws);
+        const pending = pendingRegistrations.get(socket);
 
         if (pending && !pending.registered) {
           sendMessage(ws, { type: "error", message: "Registration timeout" });
           ws.close();
-          removePendingRegistration(ws);
+          removePendingRegistration(socket);
         }
       }, REGISTER_TIMEOUT_MS);
 
-      pendingRegistrations.set(ws, { timeout, registered: false });
+      pendingRegistrations.set(socket, { timeout, registered: false });
     },
 
     message(ws, rawMessage) {
@@ -115,7 +121,7 @@ export function createTunnelWebSocket(publicUrl: string) {
         return;
       }
 
-      const pending = pendingRegistrations.get(ws);
+      const pending = pendingRegistrations.get(ws.raw);
 
       if (pending?.registered) {
         sendMessage(ws, { type: "error", message: "Already registered" });
@@ -150,7 +156,7 @@ export function createTunnelWebSocket(publicUrl: string) {
 
       if (pending) {
         pending.registered = true;
-        clearRegistrationTimeout(ws);
+        clearRegistrationTimeout(ws.raw);
       }
 
       const webhookUrl = `${publicUrl.replace(/\/$/, "")}/hook/${message.tunnel}`;
@@ -163,7 +169,7 @@ export function createTunnelWebSocket(publicUrl: string) {
     },
 
     close(ws) {
-      removePendingRegistration(ws);
+      removePendingRegistration(ws.raw);
       unregisterSocket(ws.raw);
     },
   });
