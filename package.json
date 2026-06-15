@@ -1,0 +1,20 @@
+{
+  "name": "meawhooks",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "test": "turbo test",
+    "listen": "bun run --filter @meawhooks/cli listen -- --tunnel test http://localhost:9999/hook"
+  },
+  "devDependencies": {
+    "bun-types": "^1.3.14",
+    "turbo": "^2.5.4",
+    "typescript": "^5.8.3"
+  },
+  "packageManager": "bun@1.3.14"
+}

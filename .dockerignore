@@ -1,0 +1,14 @@
+node_modules
+dist
+.turbo
+.env
+*.log
+.git
+
+apps/cli/src
+
+.cursor
+.vscode
+.idea
+*.md
+!apps/api/.env.example
