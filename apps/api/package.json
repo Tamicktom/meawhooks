@@ -10,6 +10,7 @@
     "test": "bun test --isolate"
   },
   "dependencies": {
+    "@elysia/openapi": "^1.4.15",
     "elysia": "^1.3.5"
   },
   "devDependencies": {

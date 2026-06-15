@@ -41,6 +41,8 @@ flowchart LR
 - **Modules**: [apps/api/src/tunnel/](apps/api/src/tunnel/) — WebSocket registration, webhook ingress, in-memory store
 - **Routes**:
   - `GET /health` → `{ "status": "ok" }`
+  - `GET /openapi` → Scalar API documentation UI
+  - `GET /openapi/json` → OpenAPI specification (JSON)
   - `WS /ws` → tunnel registration via WebSocket
   - `ALL /hook/:tunnel` and `ALL /hook/:tunnel/*` → accept webhooks, forward to CLI, respond `202`
 - **Port**: `PORT` env var (default `3000`)

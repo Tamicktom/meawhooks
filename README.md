@@ -63,6 +63,8 @@ bun run build
 | Method | Path | Response |
 |--------|------|----------|
 | GET | `/health` | `{ "status": "ok" }` |
+| GET | `/openapi` | Scalar API documentation UI |
+| GET | `/openapi/json` | OpenAPI specification (JSON) |
 | WS | `/ws` | WebSocket tunnel registration |
 | ALL | `/hook/:tunnel` | Accept webhook, forward to CLI |
 | ALL | `/hook/:tunnel/*` | Accept webhook with path suffix |
