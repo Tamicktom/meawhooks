@@ -9,6 +9,7 @@
     "dev": "bun --env-file=.env run src/index.tsx listen --tunnel test http://localhost:9999/hook",
     "listen": "bun --env-file=.env run src/index.tsx listen",
     "build": "bun build src/index.tsx --outdir dist --target bun --external react-devtools-core",
+    "build:binary": "bun build src/index.tsx --compile --target=bun-linux-x64 --outfile dist/meawhooks-linux-x64",
     "lint": "tsc --noEmit",
     "test": "bun test --isolate src/lib && bun test src/commands/listen.test.tsx"
   },
@@ -19,6 +20,7 @@
   "devDependencies": {
     "@types/react": "^19.2.0",
     "ink-testing-library": "^4.0.0",
+    "react-devtools-core": "^7.0.1",
     "typescript": "^5.8.3"
   }
 }
