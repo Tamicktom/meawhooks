@@ -28,9 +28,12 @@ Current request flow:
 ```mermaid
 flowchart LR
   Sender -->|"ANY /hook/:tunnel"| API
-  CLI -->|"WS /ws register"| API
-  API -->|"webhook event"| CLI
-  CLI -->|"fetch forward"| Local
+  CLI1 -->|"WS /ws register"| API
+  CLI2 -->|"WS /ws register"| API
+  API -->|"webhook event"| CLI1
+  API -->|"webhook event"| CLI2
+  CLI1 -->|"fetch forward"| Local1
+  CLI2 -->|"fetch forward"| Local2
 ```
 
 ## Apps
@@ -44,7 +47,7 @@ flowchart LR
   - `GET /openapi` → Scalar API documentation UI
   - `GET /openapi/json` → OpenAPI specification (JSON)
   - `WS /ws` → tunnel registration via WebSocket
-  - `ALL /hook/:tunnel` and `ALL /hook/:tunnel/*` → accept webhooks, forward to CLI, respond `202`
+  - `ALL /hook/:tunnel` and `ALL /hook/:tunnel/*` → accept webhooks, broadcast to all connected CLIs, respond `202`
 - **Port**: `PORT` env var (default `3000`)
 - **Public URL**: `PUBLIC_URL` env var (default `http://localhost:3000`)
 - **Stack**: Bun, TypeScript, ElysiaJS
@@ -111,6 +114,7 @@ Patterns already used in this codebase — follow them when adding code:
 - No automated tests yet — manual validation via curl and `meawhooks listen`
 - No ESLint/Prettier — lint is `tsc --noEmit` only
 - Webhook proxy is fire-and-forget: API returns `202` without waiting for local server response
+- Multiple CLI instances can register the same tunnel slug; webhooks are broadcast to all active listeners
 
 ## Environment variables
 
