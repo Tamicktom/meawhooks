@@ -142,14 +142,8 @@ export function createTunnelWebSocket(publicUrl: string) {
       if (!result.ok) {
         sendMessage(ws, {
           type: "error",
-          message: result.reason === "already_registered"
-            ? "Already registered"
-            : "Tunnel slug already in use",
+          message: "Already registered",
         });
-
-        if (result.reason === "taken") {
-          ws.close();
-        }
 
         return;
       }

@@ -3,7 +3,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 
 //* Local imports
 import {
-  getTunnelSocket,
+  getTunnelSockets,
   registerTunnel,
   resetStore,
   unregisterSocket,
@@ -20,7 +20,7 @@ describe("registerTunnel", () => {
     const result = registerTunnel("my-tunnel", socket);
 
     expect(result).toEqual({ ok: true });
-    expect(getTunnelSocket("my-tunnel")).toBe(socket);
+    expect(getTunnelSockets("my-tunnel")).toEqual([socket]);
   });
 
   test("allows re-registering the same socket", () => {
@@ -30,18 +30,18 @@ describe("registerTunnel", () => {
     const result = registerTunnel("my-tunnel", socket);
 
     expect(result).toEqual({ ok: true });
-    expect(getTunnelSocket("my-tunnel")).toBe(socket);
+    expect(getTunnelSockets("my-tunnel")).toEqual([socket]);
   });
 
-  test("rejects a different socket when tunnel is taken", () => {
+  test("allows multiple sockets on the same tunnel", () => {
     const firstSocket = { send: () => {} };
     const secondSocket = { send: () => {} };
 
     registerTunnel("my-tunnel", firstSocket);
     const result = registerTunnel("my-tunnel", secondSocket);
 
-    expect(result).toEqual({ ok: false, reason: "taken" });
-    expect(getTunnelSocket("my-tunnel")).toBe(firstSocket);
+    expect(result).toEqual({ ok: true });
+    expect(getTunnelSockets("my-tunnel")).toEqual([firstSocket, secondSocket]);
   });
 
   test("rejects a different tunnel when the socket is already registered", () => {
@@ -51,8 +51,8 @@ describe("registerTunnel", () => {
     const result = registerTunnel("other-tunnel", socket);
 
     expect(result).toEqual({ ok: false, reason: "already_registered" });
-    expect(getTunnelSocket("my-tunnel")).toBe(socket);
-    expect(getTunnelSocket("other-tunnel")).toBeUndefined();
+    expect(getTunnelSockets("my-tunnel")).toEqual([socket]);
+    expect(getTunnelSockets("other-tunnel")).toEqual([]);
   });
 });
 
@@ -63,7 +63,7 @@ describe("unregisterSocket", () => {
     registerTunnel("my-tunnel", socket);
     unregisterSocket(socket);
 
-    expect(getTunnelSocket("my-tunnel")).toBeUndefined();
+    expect(getTunnelSockets("my-tunnel")).toEqual([]);
   });
 
   test("is a no-op for an unknown socket", () => {
@@ -72,18 +72,17 @@ describe("unregisterSocket", () => {
     registerTunnel("my-tunnel", socket);
     unregisterSocket({ send: () => {} });
 
-    expect(getTunnelSocket("my-tunnel")).toBe(socket);
+    expect(getTunnelSockets("my-tunnel")).toEqual([socket]);
   });
 
-  test("does not remove the tunnel if another socket replaced it", () => {
+  test("removes only the disconnected socket when others remain", () => {
     const firstSocket = { send: () => {} };
     const secondSocket = { send: () => {} };
 
     registerTunnel("my-tunnel", firstSocket);
-    unregisterSocket(firstSocket);
     registerTunnel("my-tunnel", secondSocket);
     unregisterSocket(firstSocket);
 
-    expect(getTunnelSocket("my-tunnel")).toBe(secondSocket);
+    expect(getTunnelSockets("my-tunnel")).toEqual([secondSocket]);
   });
 });

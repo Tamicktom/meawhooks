@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 
 //* Local imports
 import { createTestApp, startTestServer, waitFor } from "../test/helpers";
-import { getTunnelSocket, resetStore } from "./store";
+import { getTunnelSockets, resetStore } from "./store";
 
 const REGISTER_TIMEOUT_MS = 5000;
 
@@ -137,7 +137,7 @@ describe("createTunnelWebSocket", () => {
     socket.close();
   });
 
-  test("rejects when tunnel slug is already in use", async () => {
+  test("allows a second socket on the same tunnel", async () => {
     const firstSocket = await openWebSocket();
     firstSocket.send(JSON.stringify({ type: "register", tunnel: "my-app" }));
     await readNextMessage(firstSocket);
@@ -147,14 +147,15 @@ describe("createTunnelWebSocket", () => {
     const message = await readNextMessage(secondSocket);
 
     expect(message).toEqual({
-      type: "error",
-      message: "Tunnel slug already in use",
+      type: "registered",
+      tunnel: "my-app",
+      webhookUrl: "http://localhost:3000/hook/my-app",
     });
 
+    expect(getTunnelSockets("my-app")).toHaveLength(2);
+
     firstSocket.close();
-    await new Promise<void>((resolve) => {
-      secondSocket.addEventListener("close", () => resolve(), { once: true });
-    });
+    secondSocket.close();
   });
 
   test("closes with registration timeout when register is never sent", async () => {
@@ -233,17 +234,37 @@ describe("createTunnelWebSocket", () => {
     }
   });
 
-  test("unregisters tunnel when the socket closes", async () => {
+  test("unregisters tunnel when the last socket closes", async () => {
     const socket = await openWebSocket();
     socket.send(JSON.stringify({ type: "register", tunnel: "my-app" }));
     await readNextMessage(socket);
 
-    expect(getTunnelSocket("my-app")).toBeDefined();
+    expect(getTunnelSockets("my-app")).toHaveLength(1);
 
     socket.close();
-    await waitFor(() => getTunnelSocket("my-app") === undefined);
+    await waitFor(() => getTunnelSockets("my-app").length === 0);
 
     const response = await fetch(`${getServerUrl()}/hook/my-app`, { method: "POST", body: "test" });
     expect(response.status).toBe(503);
+  });
+
+  test("keeps tunnel active when one of multiple sockets closes", async () => {
+    const firstSocket = await openWebSocket();
+    firstSocket.send(JSON.stringify({ type: "register", tunnel: "my-app" }));
+    await readNextMessage(firstSocket);
+
+    const secondSocket = await openWebSocket();
+    secondSocket.send(JSON.stringify({ type: "register", tunnel: "my-app" }));
+    await readNextMessage(secondSocket);
+
+    expect(getTunnelSockets("my-app")).toHaveLength(2);
+
+    firstSocket.close();
+    await waitFor(() => getTunnelSockets("my-app").length === 1);
+
+    const response = await fetch(`${getServerUrl()}/hook/my-app`, { method: "POST", body: "test" });
+    expect(response.status).toBe(202);
+
+    secondSocket.close();
   });
 });

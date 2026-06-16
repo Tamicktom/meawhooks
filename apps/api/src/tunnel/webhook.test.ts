@@ -139,4 +139,35 @@ describe("createWebhookRoutes", () => {
     expect(event.headers.host).toBeUndefined();
     expect(event.headers.connection).toBeUndefined();
   });
+
+  test("broadcasts event to all registered sockets with the same id", async () => {
+    crypto.randomUUID = mock(() => "event-broadcast") as typeof crypto.randomUUID;
+
+    const firstSocket = createMockSocket();
+    const secondSocket = createMockSocket();
+    registerTunnel("my-tunnel", firstSocket);
+    registerTunnel("my-tunnel", secondSocket);
+
+    const app = createWebhookApp();
+    const response = await app.handle(
+      new Request("http://localhost/hook/my-tunnel", {
+        method: "POST",
+        body: '{"shared":true}',
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    expect(response.status).toBe(202);
+    expect(await response.json()).toEqual({ status: "accepted", id: "event-broadcast" });
+
+    expect(firstSocket.sent).toHaveLength(1);
+    expect(secondSocket.sent).toHaveLength(1);
+
+    const firstEvent = JSON.parse(firstSocket.sent[0]!) as WebhookEvent;
+    const secondEvent = JSON.parse(secondSocket.sent[0]!) as WebhookEvent;
+
+    expect(firstEvent.id).toBe("event-broadcast");
+    expect(secondEvent.id).toBe("event-broadcast");
+    expect(firstEvent).toEqual(secondEvent);
+  });
 });

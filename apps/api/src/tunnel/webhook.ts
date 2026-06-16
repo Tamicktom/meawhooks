@@ -2,7 +2,7 @@
 import { Elysia } from "elysia";
 
 //* Local imports
-import { getTunnelSocket } from "./store";
+import { getTunnelSockets } from "./store";
 import type { WebhookEvent } from "./types";
 
 const HOP_BY_HOP_HEADERS = new Set([
@@ -75,14 +75,25 @@ function buildWebhookEvent(
 }
 
 function forwardWebhook(event: WebhookEvent, tunnel: string) {
-  const socket = getTunnelSocket(tunnel);
+  const sockets = getTunnelSockets(tunnel);
 
-  if (!socket) {
+  if (sockets.length === 0) {
     return null;
   }
 
-  socket.send(JSON.stringify(event));
-  return event.id;
+  const payload = JSON.stringify(event);
+  let delivered = false;
+
+  for (const socket of sockets) {
+    try {
+      socket.send(payload);
+      delivered = true;
+    } catch {
+      // Skip failed sockets; continue broadcasting to others.
+    }
+  }
+
+  return delivered ? event.id : null;
 }
 
 async function handleWebhook(request: Request, params: WebhookParams) {
@@ -105,7 +116,7 @@ async function handleWebhook(request: Request, params: WebhookParams) {
 const WEBHOOK_DETAIL = {
   tags: ["Webhooks"],
   description:
-    "Accepts any HTTP method. Returns 202 when an active tunnel listener is registered, 503 otherwise. Forwards the request to the CLI over WebSocket (fire-and-forget).",
+    "Accepts any HTTP method. Returns 202 when at least one active tunnel listener is registered, 503 otherwise. Broadcasts the request to all connected CLIs over WebSocket (fire-and-forget).",
 };
 
 export function createWebhookRoutes() {
