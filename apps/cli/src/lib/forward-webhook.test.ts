@@ -15,10 +15,12 @@ const baseEvent: WebhookEvent = {
   body: null,
 };
 
+const originalFetch = globalThis.fetch;
 let fetchMock: ReturnType<typeof mock>;
 
 afterEach(() => {
   fetchMock?.mockRestore?.();
+  globalThis.fetch = originalFetch;
 });
 
 function mockFetch(response: Response) {
@@ -80,12 +82,20 @@ describe("forwardWebhook", () => {
     expect(Buffer.from(init.body as ArrayBuffer).equals(bytes)).toBe(true);
   });
 
-  test("returns success result with status code", async () => {
-    mockFetch(new Response(null, { status: 201 }));
+  test.each([200, 201, 204, 299])("returns success result with status %i", async (status) => {
+    mockFetch(new Response(null, { status }));
 
     const result = await forwardWebhook("http://localhost:8080/hook", baseEvent);
 
-    expect(result).toEqual({ ok: true, status: 201 });
+    expect(result).toEqual({ ok: true, status });
+  });
+
+  test.each([400, 404, 500, 503])("returns failure with HTTP status %i", async (status) => {
+    mockFetch(new Response(null, { status }));
+
+    const result = await forwardWebhook("http://localhost:8080/hook", baseEvent);
+
+    expect(result).toEqual({ ok: false, error: `HTTP ${status}`, status });
   });
 
   test("returns error result when fetch throws", async () => {

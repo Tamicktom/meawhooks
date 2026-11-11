@@ -9,7 +9,9 @@ import type { ForwardWebhookResult } from "../lib/forward-webhook";
 import type { WebhookEvent } from "../lib/types";
 
 const originalWebSocket = globalThis.WebSocket;
-const forwardWebhookMock = mock(
+const originalFetch = globalThis.fetch;
+const { forwardWebhook: realForwardWebhook } = await import("../lib/forward-webhook");
+const forwardWebhookMock = mock<typeof realForwardWebhook>(
   (): Promise<ForwardWebhookResult> => Promise.resolve({ ok: true, status: 200 }),
 );
 
@@ -34,6 +36,7 @@ beforeEach(() => {
 
 afterEach(() => {
   restoreWebSocket(originalWebSocket);
+  globalThis.fetch = originalFetch;
 });
 
 async function waitForFrame(getFrame: () => string, pattern: RegExp, timeoutMs = 2000) {
@@ -224,6 +227,33 @@ describe("ListenCommand", () => {
     expect(view.lastFrame()).toContain("Received: 1");
     expect(view.lastFrame()).toContain("Forwarded: 1");
     expect(forwardWebhookMock).toHaveBeenCalledWith("http://localhost:8080/hook", event);
+  });
+
+  test.each([404, 500])("counts HTTP %i as failed and shows its status in the log", async (status) => {
+    forwardWebhookMock.mockImplementation(realForwardWebhook);
+    globalThis.fetch = mock(() => Promise.resolve(new Response(null, { status }))) as unknown as typeof fetch;
+
+    const view = render(<ListenCommand tunnel="my-app" targetUrl="http://localhost:8080/hook" />);
+
+    try {
+      const socket = MockWebSocket.latest();
+      socket.simulateOpen();
+      socket.simulateMessage({
+        type: "webhook",
+        id: "wh-http-error",
+        method: "POST",
+        path: "",
+        query: "",
+        headers: {},
+        body: null,
+      });
+
+      await waitForFrame(() => view.lastFrame() ?? "", new RegExp(`\\[ERR\\] POST / — ${status}`));
+      expect(view.lastFrame()).toContain("Received: 1 | Forwarded: 0 | Failed: 1");
+      expect(view.lastFrame()).not.toContain("[OK]");
+    } finally {
+      view.unmount();
+    }
   });
 
   test("shows failure log when forwarding fails", async () => {

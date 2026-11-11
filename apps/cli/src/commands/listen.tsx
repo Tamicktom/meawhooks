@@ -78,7 +78,7 @@ export function ListenCommand(props: ListenCommandProps) {
             method: event.method,
             path: event.path || "/",
             result: "failure",
-            detail: result.error,
+            detail: result.status === undefined ? result.error : String(result.status),
           });
         })
         .catch((error: unknown) => {
