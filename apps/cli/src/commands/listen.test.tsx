@@ -86,6 +86,119 @@ describe("ListenCommand", () => {
     expect(view.lastFrame()).toContain("error");
   });
 
+  test.each(["", "ab", "a".repeat(33), "My-app", "my_app", "my app"])(
+    "rejects invalid tunnel slug %j before opening a socket",
+    async (tunnel) => {
+      const view = render(<ListenCommand tunnel={tunnel} targetUrl="http://localhost:8080/hook" />);
+
+      try {
+        await waitForFrame(() => view.lastFrame() ?? "", /Invalid tunnel slug/);
+        expect(MockWebSocket.instances).toHaveLength(0);
+        expect(view.lastFrame()).toContain("Status: error");
+      } finally {
+        view.unmount();
+      }
+    },
+  );
+
+  test("preserves registration rejection and does not reconnect after server close", async () => {
+    const view = render(<ListenCommand tunnel="my-app" targetUrl="http://localhost:8080/hook" />);
+
+    try {
+      const socket = MockWebSocket.latest();
+      socket.simulateOpen();
+      socket.simulateMessage({ type: "error", message: "Expected register message" });
+      socket.simulateClose();
+
+      await new Promise((resolve) => setTimeout(resolve, 1200));
+
+      expect(MockWebSocket.instances).toHaveLength(1);
+      expect(view.lastFrame()).toContain("Status: error");
+      expect(view.lastFrame()).toContain("Expected register message");
+    } finally {
+      view.unmount();
+    }
+  });
+
+  test.each(["abc", "a".repeat(32), "a-1"])("registers valid tunnel slug %j", (tunnel) => {
+    const view = render(<ListenCommand tunnel={tunnel} targetUrl="http://localhost:8080/hook" />);
+
+    try {
+      const socket = MockWebSocket.latest();
+      socket.simulateOpen();
+      expect(socket.sent).toEqual([JSON.stringify({ type: "register", tunnel })]);
+    } finally {
+      view.unmount();
+    }
+  });
+
+  test.each([false, true])("reconnects after network closure (error event: %j)", async (withError) => {
+    const view = render(<ListenCommand tunnel="my-app" targetUrl="http://localhost:8080/hook" />);
+
+    try {
+      const socket = MockWebSocket.latest();
+      if (withError) {
+        socket.simulateError();
+      }
+      socket.simulateClose();
+      await new Promise((resolve) => setTimeout(resolve, 1200));
+
+      expect(MockWebSocket.instances).toHaveLength(2);
+      const reconnected = MockWebSocket.latest();
+      reconnected.simulateOpen();
+      expect(reconnected.sent).toEqual([JSON.stringify({ type: "register", tunnel: "my-app" })]);
+      reconnected.simulateMessage({
+        type: "registered", tunnel: "my-app", webhookUrl: "http://localhost:3000/hook/my-app",
+      });
+      await waitForFrame(() => view.lastFrame() ?? "", /Status: connected/);
+    } finally {
+      view.unmount();
+    }
+  });
+
+  test("keeps Already registered recoverable and reconnects after a later closure", async () => {
+    const view = render(<ListenCommand tunnel="my-app" targetUrl="http://localhost:8080/hook" />);
+
+    try {
+      const socket = MockWebSocket.latest();
+      socket.simulateOpen();
+      socket.simulateMessage({
+        type: "registered", tunnel: "my-app", webhookUrl: "http://localhost:3000/hook/my-app",
+      });
+      socket.simulateMessage({ type: "error", message: "Already registered" });
+      await waitForFrame(() => view.lastFrame() ?? "", /Already registered/);
+      expect(socket.readyState).toBe(WebSocket.OPEN);
+      socket.simulateClose();
+      await new Promise((resolve) => setTimeout(resolve, 1200));
+
+      expect(MockWebSocket.instances).toHaveLength(2);
+    } finally {
+      view.unmount();
+    }
+  });
+
+  test("preserves a fatal rejection even after registration and a transport error", async () => {
+    const view = render(<ListenCommand tunnel="my-app" targetUrl="http://localhost:8080/hook" />);
+
+    try {
+      const socket = MockWebSocket.latest();
+      socket.simulateOpen();
+      socket.simulateMessage({
+        type: "registered", tunnel: "my-app", webhookUrl: "http://localhost:3000/hook/my-app",
+      });
+      socket.simulateMessage({ type: "error", message: "Expected register message" });
+      socket.simulateError();
+      socket.simulateClose();
+      await new Promise((resolve) => setTimeout(resolve, 1200));
+
+      expect(MockWebSocket.instances).toHaveLength(1);
+      expect(view.lastFrame()).toContain("Status: error");
+      expect(view.lastFrame()).toContain("Expected register message");
+    } finally {
+      view.unmount();
+    }
+  });
+
   test("forwards webhook events and shows success log", async () => {
     forwardWebhookMock.mockImplementation(() => Promise.resolve({ ok: true, status: 204 }));
 
