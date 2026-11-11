@@ -39,6 +39,15 @@ export function ListenCommand(props: ListenCommandProps) {
   const shouldReconnectRef = useRef(true);
 
   useEffect(() => {
+    shouldReconnectRef.current = true;
+
+    if (!/^[a-z0-9-]{3,32}$/.test(props.tunnel)) {
+      shouldReconnectRef.current = false;
+      setConnectionStatus("error");
+      setErrorMessage("Invalid tunnel slug. Use 3-32 lowercase letters, numbers, or hyphens.");
+      return;
+    }
+
     const apiUrl = process.env.API_URL ?? "http://localhost:3000";
     const wsBaseUrl = toWebSocketUrl(apiUrl);
 
@@ -85,26 +94,6 @@ export function ListenCommand(props: ListenCommandProps) {
         });
     }
 
-    function handleServerMessage(message: ServerMessage) {
-      if (message.type === "registered") {
-        reconnectDelayRef.current = INITIAL_RECONNECT_DELAY_MS;
-        setConnectionStatus("connected");
-        setWebhookUrl(message.webhookUrl);
-        setErrorMessage("");
-        return;
-      }
-
-      if (message.type === "error") {
-        setConnectionStatus("error");
-        setErrorMessage(message.message);
-        return;
-      }
-
-      if (message.type === "webhook") {
-        handleWebhookEvent(message);
-      }
-    }
-
     function scheduleReconnect() {
       if (!shouldReconnectRef.current) {
         return;
@@ -126,8 +115,34 @@ export function ListenCommand(props: ListenCommandProps) {
       setConnectionStatus("connecting");
       setErrorMessage("");
 
+      let registrationError: string | null = null;
       const socket = new WebSocket(`${wsBaseUrl}/ws`);
       socketRef.current = socket;
+
+      function handleServerMessage(message: ServerMessage) {
+        if (message.type === "registered") {
+          registrationError = null;
+          reconnectDelayRef.current = INITIAL_RECONNECT_DELAY_MS;
+          setConnectionStatus("connected");
+          setWebhookUrl(message.webhookUrl);
+          setErrorMessage("");
+          return;
+        }
+
+        if (message.type === "error") {
+          if (message.message !== "Already registered") {
+            registrationError = message.message;
+          }
+
+          setConnectionStatus("error");
+          setErrorMessage(message.message);
+          return;
+        }
+
+        if (message.type === "webhook") {
+          handleWebhookEvent(message);
+        }
+      }
 
       socket.addEventListener("open", () => {
         socket.send(JSON.stringify({ type: "register", tunnel: props.tunnel }));
@@ -145,6 +160,14 @@ export function ListenCommand(props: ListenCommandProps) {
 
       socket.addEventListener("close", () => {
         socketRef.current = null;
+
+        if (registrationError !== null) {
+          shouldReconnectRef.current = false;
+          setConnectionStatus("error");
+          setErrorMessage(registrationError);
+          return;
+        }
+
         scheduleReconnect();
       });
 
