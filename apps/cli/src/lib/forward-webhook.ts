@@ -7,6 +7,7 @@ export type ForwardWebhookResult = {
 } | {
   ok: false;
   error: string;
+  status?: number;
 };
 
 function buildTargetUrl(targetBaseUrl: string, event: WebhookEvent): string {
@@ -45,6 +46,10 @@ export async function forwardWebhook(
       headers: event.headers,
       body: body === null ? undefined : body,
     });
+
+    if (!response.ok) {
+      return { ok: false, error: `HTTP ${response.status}`, status: response.status };
+    }
 
     return { ok: true, status: response.status };
   } catch (error) {
